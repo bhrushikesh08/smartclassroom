@@ -83,5 +83,5 @@ deploy with zero setup tooling.
 
 ---
 
-Built By - B. Hrushikesh
-— portfolio project.
+Developed By - B. Hrushikesh
+— In Development stage.
