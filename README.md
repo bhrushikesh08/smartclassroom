@@ -5,7 +5,7 @@ circulars in polytechnic colleges with instant digital notices on a
 classroom screen — built as a smart-classroom initiative for **SBTET
 polytechnic colleges, Andhra Pradesh**.
 
-**🔗 Live demo:** `https://bhrushikesh08.github.io/smartclassroom/` *
+**🔗 Live demo:** `https://bhrushikesh08.github.io/smartclassroom/` 
 
 ---
 
