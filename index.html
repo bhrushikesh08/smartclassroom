@@ -88,7 +88,10 @@
   .hist-msg{ font-size:13px; color:var(--ink); margin-top:5px; line-height:1.5; }
   .tag{ font-size:10.5px; padding:2px 7px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
   .tag.urgent{ border-color:var(--danger); color:var(--danger); }
-  .seen{ font-size:11px; color:var(--muted); margin-top:5px; }
+  .seen{ font-size:11px; color:var(--muted); }
+  .hist-bottom{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+  .delete-btn{ background:none; border:none; color:var(--danger); font-size:11.5px; text-decoration:underline; padding:2px; }
+  .delete-btn:hover{ opacity:.75; }
   .empty{ color:var(--muted); font-size:13px; padding:10px 0; }
 
   /* ---------- DISPLAY SCREEN ---------- */
@@ -201,6 +204,16 @@ var firebaseConfig = {
     dbRef.child(circ.id).child("seenCount").transaction(function(cur){ return (cur||0) + 1; });
   }
 
+  function deleteCircular(id){
+    if(!dbRef) return;
+    dbRef.child(id).remove().catch(function(e){ alert("Could not delete: " + e.message); });
+  }
+
+  function canDelete(role, c){
+    if(role.type === "PRINCIPAL") return true;
+    return c.issuedBy === issuerLabel(role) || c.targetDept === role.dept;
+  }
+
   function esc(s){ var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
   function timeAgo(iso){
     if(!iso) return "";
@@ -264,7 +277,8 @@ var firebaseConfig = {
             (c.priority==="urgent" ? '<span class="tag urgent">Urgent</span>' : '<span class="tag">Normal</span>') + '</div>' +
             '<div class="hist-meta">'+esc(c.issuedBy)+' → '+(c.targetDept==="ALL"?"All depts":c.targetDept)+' · '+timeAgo(c.timestamp)+'</div>' +
             '<div class="hist-msg">'+esc(c.message)+'</div>' +
-            '<div class="seen">Seen on '+(c.seenCount||0)+' screen'+((c.seenCount||0)===1?'':'s')+'</div></div>';
+            '<div class="hist-bottom"><div class="seen">Seen on '+(c.seenCount||0)+' screen'+((c.seenCount||0)===1?'':'s')+'</div>' +
+            (canDelete(role, c) ? '<button class="delete-btn" data-delete="'+c.id+'">Delete</button>' : '') + '</div></div>';
         }).join('')) + '</div>' +
       '<div class="compose-pane"><div class="inner"><div class="section-label" style="margin-top:0">New circular</div>' +
         '<div class="field"><label>Title</label><input type="text" id="cTitle" maxlength="80" placeholder="e.g. College closed tomorrow" value="'+esc(state.composeTitle)+'"></div>' +
@@ -322,6 +336,16 @@ var firebaseConfig = {
         targetDept: document.getElementById("cTarget") ? document.getElementById("cTarget").value : state.composeTarget,
         issuedBy: issuerLabel(state.role) });
     };
+    document.querySelectorAll("[data-delete]").forEach(function(btn){
+      btn.onclick = function(){
+        var id = btn.getAttribute("data-delete");
+        var circ = state.circulars.filter(function(c){ return c.id === id; })[0];
+        var label = circ ? circ.title : "this circular";
+        if(window.confirm('Delete "' + label + '"? This removes it from every classroom display immediately.')){
+          deleteCircular(id);
+        }
+      };
+    });
     document.querySelectorAll("[data-seen]").forEach(function(btn){
       btn.onclick = function(){ var id = btn.getAttribute("data-seen"); var circ = state.circulars.filter(function(c){return c.id===id;})[0];
         if(circ){ btn.disabled = true; markSeen(circ); } };
