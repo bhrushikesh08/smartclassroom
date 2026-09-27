@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Digital Circular System — Smart Classroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Firebase (free tier) — loaded from jsDelivr, no install needed -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.0/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.0/firebase-database-compat.js"></script>
+
+<style>
+  :root{
+    --ink:#16233B; --paper:#F6F4EF; --paper-raised:#FFFFFF; --teal:#2E6F62; --amber:#C97A2B;
+    --line:#D8D2C4; --muted:#5B6470; --danger:#B4442E;
+  }
+  *{box-sizing:border-box;}
+  html,body{ height:100%; margin:0; }
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{ font-family:'Source Serif 4', Georgia, serif; }
+  #app{ min-height:100%; display:flex; flex-direction:column; }
+  button{ font-family:inherit; cursor:pointer; }
+
+  .config-warning{ background:#FBEFE1; border-bottom:1px solid var(--amber); color:var(--ink);
+    padding:10px 20px; font-size:13px; text-align:center; }
+  .config-warning code{ background:rgba(0,0,0,.06); padding:1px 5px; border-radius:3px; }
+
+  /* ---------- GATE ---------- */
+  .gate{ flex:1; display:flex; align-items:center; justify-content:center; padding:32px 20px; }
+  .gate-card{ width:100%; max-width:640px; }
+  .gate-eyebrow{ font-size:13px; color:var(--teal); margin:0 0 6px; }
+  .gate-title{ font-size:clamp(28px,5vw,40px); font-weight:700; margin:0 0 6px; line-height:1.15; }
+  .gate-sub{ color:var(--muted); font-size:15px; margin:0 0 28px; max-width:52ch; line-height:1.6; }
+  .gate-rule{ border:none; border-top:1px solid var(--line); margin:0 0 28px; }
+  .role-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:560px){ .role-grid{ grid-template-columns:1fr; } }
+  .role-btn{ text-align:left; background:var(--paper-raised); border:1px solid var(--line);
+    padding:16px 18px; border-radius:4px; color:var(--ink); transition:border-color .15s; }
+  .role-btn:hover{ border-color:var(--teal); }
+  .role-btn .r-name{ font-weight:600; font-size:15px; display:block; }
+  .role-btn .r-desc{ color:var(--muted); font-size:12.5px; margin-top:3px; display:block; }
+  .section-label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:22px 0 10px; }
+
+  /* ---------- SHELL ---------- */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 20px; border-bottom:1px solid var(--line); background:var(--paper-raised); }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .seal{ width:34px; height:34px; border-radius:50%; background:var(--ink); color:var(--paper);
+    display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4',serif; font-weight:700; font-size:15px; flex-shrink:0;}
+  .brand-text .b1{ font-weight:600; font-size:14px; line-height:1.2; }
+  .brand-text .b2{ color:var(--muted); font-size:12px; }
+  .topbar-actions{ display:flex; align-items:center; gap:10px; }
+  .pill{ font-size:12px; padding:5px 10px; border:1px solid var(--line); border-radius:99px; color:var(--muted); }
+  .linkbtn{ background:none; border:none; color:var(--muted); font-size:13px; text-decoration:underline; padding:4px; }
+
+  /* ---------- ADMIN CONSOLE ---------- */
+  .console{ flex:1; display:grid; grid-template-columns:340px 1fr; }
+  @media (max-width:800px){ .console{ grid-template-columns:1fr; } }
+  .history-pane{ border-right:1px solid var(--line); padding:20px; overflow-y:auto; max-height:calc(100vh - 64px); }
+  .compose-pane{ padding:28px 32px; overflow-y:auto; }
+  .compose-pane .inner{ max-width:600px; }
+  .field{ margin-bottom:18px; }
+  .field label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  .field input[type=text], .field textarea, .field select{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:4px;
+    background:var(--paper-raised); color:var(--ink); font-family:inherit; font-size:14.5px; }
+  .field textarea{ min-height:110px; resize:vertical; line-height:1.5; }
+  .radio-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .radio-chip{ border:1px solid var(--line); padding:8px 14px; border-radius:99px; font-size:13.5px; background:var(--paper-raised); }
+  .radio-chip.active{ border-color:var(--teal); background:var(--teal); color:#fff; }
+  .radio-chip.active.urgent{ border-color:var(--danger); background:var(--danger); }
+  .publish-btn{ background:var(--ink); color:var(--paper); border:none; padding:12px 26px;
+    border-radius:4px; font-size:14.5px; font-weight:600; }
+  .publish-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .publish-btn:not(:disabled):hover{ background:var(--teal); }
+  .status-msg{ font-size:13px; color:var(--teal); margin-top:10px; min-height:18px; }
+  .hist-item{ border-bottom:1px solid var(--line); padding:12px 0; }
+  .hist-item:last-child{ border-bottom:none; }
+  .hist-top{ display:flex; justify-content:space-between; gap:8px; font-size:13px; font-weight:600; }
+  .hist-meta{ color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .hist-msg{ font-size:13px; color:var(--ink); margin-top:5px; line-height:1.5; }
+  .tag{ font-size:10.5px; padding:2px 7px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .tag.urgent{ border-color:var(--danger); color:var(--danger); }
+  .seen{ font-size:11px; color:var(--muted); margin-top:5px; }
+  .empty{ color:var(--muted); font-size:13px; padding:10px 0; }
+
+  /* ---------- DISPLAY SCREEN ---------- */
+  .display{ flex:1; display:flex; flex-direction:column; background:var(--ink); color:var(--paper); }
+  .display .topbar{ background:transparent; border-color:rgba(255,255,255,.15); }
+  .display .brand-text .b1{ color:var(--paper); }
+  .display .brand-text .b2, .display .pill{ color:rgba(246,244,239,.55); border-color:rgba(246,244,239,.25); }
+  .display .seal{ background:var(--paper); color:var(--ink); }
+  .clock{ font-family:'Source Serif 4',serif; font-size:15px; opacity:.75; }
+  .display-body{ flex:1; padding:28px clamp(20px,5vw,64px); overflow-y:auto; }
+  .banner{ background:var(--amber); color:var(--ink); padding:20px 26px; border-radius:6px; margin-bottom:18px;
+    display:flex; flex-direction:column; gap:4px; animation:pop .35s ease; }
+  @keyframes pop{ from{ transform:scale(.98); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  .banner .b-tag{ font-size:12px; font-weight:700; letter-spacing:.04em; }
+  .banner .b-title{ font-family:'Source Serif 4',serif; font-size:clamp(20px,3vw,28px); font-weight:700; }
+  .banner .b-msg{ font-size:15px; line-height:1.5; }
+  .banner .b-meta{ font-size:12px; opacity:.75; margin-top:4px; }
+  .notice{ border-bottom:1px solid rgba(246,244,239,.15); padding:18px 0; }
+  .notice .n-title{ font-family:'Source Serif 4',serif; font-size:19px; font-weight:600; margin:0 0 5px; }
+  .notice .n-msg{ font-size:14.5px; line-height:1.6; opacity:.9; }
+  .notice .n-meta{ font-size:12px; opacity:.55; margin-top:6px; }
+  .empty-display{ opacity:.5; font-size:15px; padding:40px 0; text-align:center; }
+  .seen-btn{ margin-top:8px; background:none; border:1px solid rgba(246,244,239,.35); color:var(--paper);
+    padding:5px 12px; border-radius:99px; font-size:11.5px; }
+  .seen-btn:disabled{ opacity:.4; }
+  .fs-btn{ position:fixed; bottom:16px; right:16px; background:rgba(0,0,0,.35); color:#fff; border:1px solid rgba(255,255,255,.3);
+    padding:8px 14px; border-radius:99px; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+
+/* ======================================================================
+   1) FIREBASE CONFIG — pasted from your Firebase project
+   ====================================================================== */
+var firebaseConfig = {
+  apiKey: "AIzaSyAmq5F3eeqZy-ERSGX-LfY9fDKzaKIBs8o",
+  authDomain: "smart-classroom-demo-2b8c3.firebaseapp.com",
+  databaseURL: "https://smart-classroom-demo-2b8c3-default-rtdb.firebaseio.com",
+  projectId: "smart-classroom-demo-2b8c3",
+  storageBucket: "smart-classroom-demo-2b8c3.firebasestorage.app",
+  messagingSenderId: "199509945791",
+  appId: "1:199509945791:web:4f529e4314b586980bc50a"
+};
+/* ====================================================================== */
+
+(function(){
+
+  var DEPTS = [
+    {code:"CSE", name:"Computer Science"},
+    {code:"ECE", name:"Electronics & Comm."},
+    {code:"EEE", name:"Electrical & Electronics"},
+    {code:"MECH", name:"Mechanical"}
+  ];
+  var PINS = { PRINCIPAL:"1111", CSE:"2222", ECE:"3333", EEE:"4444", MECH:"5555" };
+  var isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("YOUR_") !== 0;
+
+  var state = {
+    view: "gate", role: null, displayDept: null, displayRoom: "",
+    circulars: [], dbReady: false,
+    composeTitle: "", composeMsg: "", composePriority: "normal", composeTarget: "ALL",
+    statusMsg: ""
+  };
+
+  function loadLocal(){
+    try{
+      var saved = JSON.parse(localStorage.getItem("scc_session") || "null");
+      if(saved){ state.view = saved.view; state.role = saved.role; state.displayDept = saved.displayDept; }
+    }catch(e){}
+  }
+  function saveLocal(){
+    try{ localStorage.setItem("scc_session", JSON.stringify({view:state.view, role:state.role, displayDept:state.displayDept})); }catch(e){}
+  }
+
+  var dbRef = null;
+  function initDb(){
+    if(!isConfigured) { render(); return; }
+    try{
+      firebase.initializeApp(firebaseConfig);
+      dbRef = firebase.database().ref("circulars");
+      dbRef.on("value", function(snapshot){
+        var val = snapshot.val() || {};
+        state.circulars = Object.keys(val).map(function(id){ return Object.assign({id:id}, val[id]); })
+          .sort(function(a,b){ return (b.timestamp||"").localeCompare(a.timestamp||""); });
+        state.dbReady = true;
+        render();
+      }, function(err){ state.dbReady = false; state.statusMsg = "Connection error: " + err.message; render(); });
+    }catch(e){ state.dbReady = false; render(); }
+  }
+
+  function publishCircular(c){
+    if(!dbRef){ state.statusMsg = "Firebase not configured yet — see README.md."; render(); return; }
+    var id = "c_" + Date.now() + "_" + Math.random().toString(36).slice(2,7);
+    dbRef.child(id).set({
+      title: c.title, message: c.message, priority: c.priority,
+      targetDept: c.targetDept, issuedBy: c.issuedBy, timestamp: new Date().toISOString(), seenCount: 0
+    }).then(function(){
+      state.statusMsg = "Published — now live on classroom displays.";
+      state.composeTitle = ""; state.composeMsg = "";
+      render();
+      setTimeout(function(){ state.statusMsg=""; render(); }, 3500);
+    }).catch(function(e){ state.statusMsg = "Could not publish: " + e.message; render(); });
+  }
+
+  function markSeen(circ){
+    if(!dbRef) return;
+    dbRef.child(circ.id).child("seenCount").transaction(function(cur){ return (cur||0) + 1; });
+  }
+
+  function esc(s){ var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+  function timeAgo(iso){
+    if(!iso) return "";
+    var diff = (Date.now() - new Date(iso).getTime())/1000;
+    if(diff < 60) return "just now";
+    if(diff < 3600) return Math.floor(diff/60)+"m ago";
+    if(diff < 86400) return Math.floor(diff/3600)+"h ago";
+    return new Date(iso).toLocaleDateString();
+  }
+  function fmtTime(iso){
+    if(!iso) return "";
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined,{day:"2-digit",month:"short"}) + " · " + d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+  }
+  function issuerLabel(role){ return role.type === "PRINCIPAL" ? "Principal" : "HOD – " + role.dept; }
+
+  function render(){
+    var app = document.getElementById("app");
+    var warn = isConfigured ? "" : '<div class="config-warning">⚠️ Firebase not connected yet — this is a static preview. Add your config at the top of the script (see <code>README.md</code>) to make it live.</div>';
+    if(state.view === "gate") app.innerHTML = warn + renderGate();
+    else if(state.view === "admin") app.innerHTML = warn + renderAdmin();
+    else if(state.view === "display") app.innerHTML = warn + renderDisplay();
+    bind();
+  }
+
+  function renderGate(){
+    return '<div class="gate"><div class="gate-card">' +
+      '<p class="gate-eyebrow serif">SBTET · Andhra Pradesh</p>' +
+      '<h1 class="gate-title">Digital Circular System</h1>' +
+      '<p class="gate-sub">One screen, every classroom. Circulars from the Principal and HODs reach students the moment they\u2019re published — no attenders, no paper, no delay.</p>' +
+      '<hr class="gate-rule">' +
+      '<div class="section-label">Sign in as</div><div class="role-grid">' +
+        '<button class="role-btn" data-role="PRINCIPAL"><span class="r-name">Principal</span><span class="r-desc">Publish to all departments</span></button>' +
+        DEPTS.map(function(d){ return '<button class="role-btn" data-role="HOD" data-dept="'+d.code+'"><span class="r-name">HOD — '+d.code+'</span><span class="r-desc">'+d.name+'</span></button>'; }).join('') +
+      '</div><div class="section-label">Classroom display</div><div class="role-grid">' +
+        DEPTS.map(function(d){ return '<button class="role-btn" data-role="DISPLAY" data-dept="'+d.code+'"><span class="r-name">'+d.code+' — Classroom screen</span><span class="r-desc">Read-only live display</span></button>'; }).join('') +
+      '</div></div></div>';
+  }
+
+  function renderTopbar(displayMode){
+    var who = state.role ? (state.view==="display" ? (state.displayDept + " · Classroom Screen") : issuerLabel(state.role)) : "";
+    return '<div class="topbar"><div class="brand"><div class="seal">SC</div>' +
+      '<div class="brand-text"><div class="b1">Digital Circular System</div><div class="b2">'+esc(who)+'</div></div></div>' +
+      '<div class="topbar-actions">' +
+      (displayMode ? '<span class="clock" id="clockEl"></span>' : '<span class="pill">'+(state.dbReady?'Live':(isConfigured?'Connecting…':'Offline preview'))+'</span>') +
+      '<button class="linkbtn" id="logoutBtn">Switch role</button></div></div>';
+  }
+
+  function renderAdmin(){
+    var role = state.role, isPrincipal = role.type === "PRINCIPAL";
+    var mine = state.circulars.filter(function(c){ return isPrincipal || c.issuedBy === issuerLabel(role) || c.targetDept === role.dept; });
+    var targetOptions = isPrincipal
+      ? ['<option value="ALL">All departments</option>'].concat(DEPTS.map(function(d){return '<option value="'+d.code+'">'+d.code+' only</option>';})).join('')
+      : '<option value="'+role.dept+'">'+role.dept+' (your department)</option>';
+    var canPublish = state.composeTitle.trim().length>0 && state.composeMsg.trim().length>0;
+    return renderTopbar(false) + '<div class="console">' +
+      '<div class="history-pane"><div class="section-label" style="margin-top:0">Recent circulars</div>' +
+      (mine.length===0 ? '<div class="empty">Nothing published yet.</div>' :
+        mine.slice(0,25).map(function(c){
+          return '<div class="hist-item"><div class="hist-top"><span>'+esc(c.title)+'</span>' +
+            (c.priority==="urgent" ? '<span class="tag urgent">Urgent</span>' : '<span class="tag">Normal</span>') + '</div>' +
+            '<div class="hist-meta">'+esc(c.issuedBy)+' → '+(c.targetDept==="ALL"?"All depts":c.targetDept)+' · '+timeAgo(c.timestamp)+'</div>' +
+            '<div class="hist-msg">'+esc(c.message)+'</div>' +
+            '<div class="seen">Seen on '+(c.seenCount||0)+' screen'+((c.seenCount||0)===1?'':'s')+'</div></div>';
+        }).join('')) + '</div>' +
+      '<div class="compose-pane"><div class="inner"><div class="section-label" style="margin-top:0">New circular</div>' +
+        '<div class="field"><label>Title</label><input type="text" id="cTitle" maxlength="80" placeholder="e.g. College closed tomorrow" value="'+esc(state.composeTitle)+'"></div>' +
+        '<div class="field"><label>Message</label><textarea id="cMsg" maxlength="500" placeholder="Write the circular text…">'+esc(state.composeMsg)+'</textarea></div>' +
+        '<div class="field"><label>Priority</label><div class="radio-row">' +
+          '<button class="radio-chip'+(state.composePriority==="normal"?" active":"")+'" data-priority="normal">Normal</button>' +
+          '<button class="radio-chip'+(state.composePriority==="urgent"?" active urgent":"")+'" data-priority="urgent">Urgent</button></div></div>' +
+        '<div class="field"><label>Target</label><select id="cTarget">'+targetOptions+'</select></div>' +
+        '<button class="publish-btn" id="publishBtn" '+(canPublish?'':'disabled')+'>Publish circular</button>' +
+        '<div class="status-msg">'+esc(state.statusMsg)+'</div></div></div></div>';
+  }
+
+  function renderDisplay(){
+    var dept = state.displayDept;
+    var relevant = state.circulars.filter(function(c){ return c.targetDept === "ALL" || c.targetDept === dept; });
+    var urgent = relevant.filter(function(c){ return c.priority === "urgent"; }).slice(0,2);
+    var normal = relevant.filter(function(c){ return c.priority !== "urgent"; });
+    return '<div class="display">' + renderTopbar(true) + '<div class="display-body">' +
+      urgent.map(function(c){ return '<div class="banner"><span class="b-tag">URGENT · '+esc(c.issuedBy)+'</span>' +
+        '<span class="b-title serif">'+esc(c.title)+'</span><span class="b-msg">'+esc(c.message)+'</span>' +
+        '<span class="b-meta">'+fmtTime(c.timestamp)+'</span></div>'; }).join('') +
+      (normal.length===0 && urgent.length===0 ? '<div class="empty-display">No circulars yet. This screen updates the instant one is published.</div>' :
+        normal.map(function(c){ return '<div class="notice"><h3 class="n-title">'+esc(c.title)+'</h3>' +
+          '<div class="n-msg">'+esc(c.message)+'</div>' +
+          '<div class="n-meta">'+esc(c.issuedBy)+' · '+(c.targetDept==="ALL"?"All departments":c.targetDept)+' · '+fmtTime(c.timestamp)+'</div>' +
+          '<button class="seen-btn" data-seen="'+c.id+'">Mark seen ('+(c.seenCount||0)+')</button></div>'; }).join('')) +
+      '</div><button class="fs-btn" id="fsBtn">Fullscreen</button></div>';
+  }
+
+  function bind(){
+    var logoutBtn = document.getElementById("logoutBtn");
+    if(logoutBtn) logoutBtn.onclick = function(){ state.view="gate"; state.role=null; state.displayDept=null; saveLocal(); render(); };
+
+    document.querySelectorAll(".role-btn").forEach(function(btn){
+      btn.onclick = function(){
+        var type = btn.getAttribute("data-role"), dept = btn.getAttribute("data-dept");
+        if(type === "DISPLAY"){ state.displayDept=dept; state.view="display"; state.role={type:"DISPLAY",dept:dept}; saveLocal(); render(); return; }
+        var pinKey = type === "PRINCIPAL" ? "PRINCIPAL" : dept;
+        var pin = window.prompt((type==="PRINCIPAL"?"Principal":"HOD "+dept) + " access PIN (prototype gate):");
+        if(pin !== PINS[pinKey]){ if(pin!==null) alert("Incorrect PIN."); return; }
+        state.role = type === "PRINCIPAL" ? {type:"PRINCIPAL"} : {type:"HOD", dept:dept};
+        state.view = "admin"; state.composeTarget = type==="PRINCIPAL" ? "ALL" : dept;
+        saveLocal(); render();
+      };
+    });
+
+    var titleEl = document.getElementById("cTitle"); if(titleEl) titleEl.oninput = function(){ state.composeTitle = titleEl.value; syncPublishBtn(); };
+    var msgEl = document.getElementById("cMsg"); if(msgEl) msgEl.oninput = function(){ state.composeMsg = msgEl.value; syncPublishBtn(); };
+    var targetEl = document.getElementById("cTarget"); if(targetEl) targetEl.onchange = function(){ state.composeTarget = targetEl.value; };
+    document.querySelectorAll("[data-priority]").forEach(function(btn){ btn.onclick = function(){ state.composePriority = btn.getAttribute("data-priority"); render(); }; });
+
+    var pubBtn = document.getElementById("publishBtn");
+    if(pubBtn) pubBtn.onclick = function(){
+      publishCircular({ title: state.composeTitle.trim(), message: state.composeMsg.trim(), priority: state.composePriority,
+        targetDept: document.getElementById("cTarget") ? document.getElementById("cTarget").value : state.composeTarget,
+        issuedBy: issuerLabel(state.role) });
+    };
+    document.querySelectorAll("[data-seen]").forEach(function(btn){
+      btn.onclick = function(){ var id = btn.getAttribute("data-seen"); var circ = state.circulars.filter(function(c){return c.id===id;})[0];
+        if(circ){ btn.disabled = true; markSeen(circ); } };
+    });
+    var fsBtn = document.getElementById("fsBtn");
+    if(fsBtn) fsBtn.onclick = function(){ if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); };
+    var clockEl = document.getElementById("clockEl"); if(clockEl) tickClock(clockEl);
+  }
+
+  function syncPublishBtn(){ var btn = document.getElementById("publishBtn"); if(btn) btn.disabled = !(state.composeTitle.trim().length>0 && state.composeMsg.trim().length>0); }
+
+  var clockTimer = null;
+  function tickClock(el){
+    if(clockTimer) clearInterval(clockTimer);
+    function upd(){ if(!document.body.contains(el)){ clearInterval(clockTimer); return; }
+      var now = new Date();
+      el.textContent = now.toLocaleDateString(undefined,{weekday:"short", day:"2-digit", month:"short"}) + "  " + now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}); }
+    upd(); clockTimer = setInterval(upd, 1000*15);
+  }
+
+  loadLocal(); render(); initDb();
+})();
+</script>
+</body>
+</html>
