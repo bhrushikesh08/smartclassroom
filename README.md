@@ -2,8 +2,7 @@
 
 A real-time, IoT-ready web system that replaces physical, attender-based
 circulars in polytechnic colleges with instant digital notices on a
-classroom screen — built as a smart-classroom initiative for **SBTET
-polytechnic colleges, Andhra Pradesh**.
+classroom screen 
 
 **🔗 Live demo:** `https://bhrushikesh08.github.io/smartclassroom/` 
 
